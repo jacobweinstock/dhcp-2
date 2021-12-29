@@ -1,0 +1,3 @@
+server4:
+    plugins:
+        - custom:
