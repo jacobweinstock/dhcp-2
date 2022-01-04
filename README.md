@@ -1,2 +1,2 @@
 # dhcp
-CoreDHCP backed by Tink server
+DHCP backed by Tink server
