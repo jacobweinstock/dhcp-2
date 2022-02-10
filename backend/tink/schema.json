@@ -1,0 +1,44 @@
+{
+    "id": "",
+    "network": {
+        "interfaces": [
+            {
+                "dhcp": {
+                    /*
+                        Acceptable Mac address formats:
+	                    00:00:5e:00:53:01
+	                    02:00:5e:10:00:00:00:01
+	                    00:00:00:00:fe:80:00:00:00:00:00:00:02:00:5e:10:00:00:00:01
+	                    00-00-5e-00-53-01
+	                    02-00-5e-10-00-00-00-01
+	                    00-00-00-00-fe-80-00-00-00-00-00-00-02-00-5e-10-00-00-00-01
+	                    0000.5e00.5301
+	                    0200.5e10.0000.0001
+	                    0000.0000.fe80.0000.0000.0000.0200.5e10.0000.0001
+	                */
+                    "mac_address": "00:00:00:00:00:00", // chaddr dhcp header
+                    "ip_address": "", // yiaddr dhcp header
+                    "subnet_mask": "", // DHCP option 1
+                    "default_gateway": "", // DHCP option 3
+                    "name_servers": [ // DHCP option 6
+                        ""
+                    ],
+                    "hostname": "", // DHCP option 12
+                    "domain_name": "", // DHCP option 15
+                    "broadcast_address": "", // DHCP option 28
+                    "ntp_servers": [ // DHCP option 42
+                        ""
+                    ],
+                    "lease_time": 86400, // DHCP option 51
+                    "domain_search": [ // DHCP option 119
+                        ""
+                    ]
+                },
+                "netboot": {
+                    "allow_pxe": true,
+                    "ipxe_script_url": "" // overrides default value of that is passed into DHCP on startup
+                }
+            }
+        ]
+    }
+}

@@ -1,6 +1,7 @@
 package tink
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"net"
@@ -14,6 +15,41 @@ import (
 	"inet.af/netaddr"
 )
 
+var tr = TinkRecord{
+	ID: "12345",
+	Network: TinkNetwork{
+		Interfaces: []TinkIntf{
+			{
+				Dhcp: TinkDhcp{
+					MacAddress:     "08:00:27:29:4E:67",
+					IPAddress:      "192.168.2.152",
+					SubnetMask:     "255.255.255.0",
+					DefaultGateway: "192.168.2.1",
+					NameServers: []string{
+						"8.8.8.8",
+						"1.1.1.1",
+					},
+					Hostname:         "pxe-test",
+					DomainName:       "weinstocklabs.com",
+					BroadcastAddress: "192.168.2.255",
+					NTPServers: []string{
+						"132.163.96.2",
+						"132.163.96.3",
+					},
+					LeaseTime: 3600,
+					DomainSearch: []string{
+						"weinstocklabs.com",
+					},
+				},
+				Netboot: TinkNetboot{
+					AllowPxe:      true,
+					IpxeScriptURL: "",
+				},
+			},
+		},
+	},
+}
+
 type Conn struct {
 	NetbootDisabled bool
 	ServerIP        netaddr.IPPort
@@ -24,24 +60,134 @@ type Conn struct {
 
 func (c *Conn) Read(ctx context.Context, mac net.HardwareAddr, m *dhcpv4.DHCPv4) ([]dhcpv4.Modifier, error) {
 	var mods []dhcpv4.Modifier
-	mods = append(mods, c.setDHCPOpts(ctx, m)...)
+	// get tink data here, translate it, then pass it into setDHCPOpts and setNetworkBootOpts
+	var t TinkIntf
+	var found bool
+	// check if we have a record for this mac
+	for _, i := range tr.Network.Interfaces {
+		ma, err := net.ParseMAC(i.Dhcp.MacAddress)
+		if err != nil {
+			fmt.Println(err, "failed to parse mac address")
+			continue
+		}
+		if bytes.Equal(ma, mac) {
+			// found a record for this mac
+			t.Dhcp = i.Dhcp
+			t.Netboot = i.Netboot
+			found = true
+			break
+		}
+	}
+	if !found {
+		return nil, fmt.Errorf("no record found for mac %s", mac.String())
+	}
+	r, err := t.translate()
+	if err != nil {
+		return nil, err
+	}
+	mods = append(mods, c.setDHCPOpts(ctx, m, r.Dhcp)...)
 	if !c.NetbootDisabled {
-		mods = append(mods, c.setNetworkBootOpts(ctx, m, true)) // true needs to come from the data returned from Tink server.)
+		mods = append(mods, c.setNetworkBootOpts(ctx, m, r.Netboot))
 	}
 
 	return mods, nil
 }
 
-func (c *Conn) setDHCPOpts(ctx context.Context, m *dhcpv4.DHCPv4) []dhcpv4.Modifier {
+func (t TinkIntf) translate() (*Intf, error) {
+	d := Dhcp{}
+	n := Netboot{}
+
+	// mac address
+	ma, err := net.ParseMAC(t.Dhcp.MacAddress)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse mac address from Tink record: %w", err)
+	}
+	d.MacAddress = ma
+
+	// ip address
+	ip, err := netaddr.ParseIP(t.Dhcp.IPAddress)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse ip address from Tink record: %w", err)
+	}
+	d.IPAddress = ip
+
+	// subnet mask
+	sm, err := netaddr.ParseIP(t.Dhcp.SubnetMask)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse subnet mask from Tink record: %w", err)
+	}
+	d.SubnetMask = sm.IPAddr().IP.DefaultMask()
+
+	// default gateway
+	dg, err := netaddr.ParseIP(t.Dhcp.DefaultGateway)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse default gateway from Tink record: %w", err)
+	}
+	d.DefaultGateway = dg
+
+	// name servers
+	for _, s := range t.Dhcp.NameServers {
+		ip := net.ParseIP(s)
+		if ip == nil {
+			fmt.Println("failed to parse name server", s)
+			break
+		}
+		d.NameServers = append(d.NameServers, ip)
+	}
+
+	// hostname
+	d.Hostname = t.Dhcp.Hostname
+
+	// domain name
+	d.DomainName = t.Dhcp.DomainName
+
+	// broadcast address
+	ba, err := netaddr.ParseIP(t.Dhcp.BroadcastAddress)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse broadcast address from Tink record: %w", err)
+	}
+	d.BroadcastAddress = ba
+
+	// ntp servers
+	for _, s := range t.Dhcp.NTPServers {
+		ip := net.ParseIP(s)
+		if ip == nil {
+			fmt.Println("failed to parse ntp server", s)
+			break
+		}
+		d.NTPServers = append(d.NTPServers, ip)
+	}
+
+	// lease time
+	// validation?
+	d.LeaseTime = uint32(t.Dhcp.LeaseTime)
+
+	// domain search
+	d.DomainSearch = t.Dhcp.DomainSearch
+
+	n.AllowPxe = t.Netboot.AllowPxe
+	n.IpxeScriptURL = t.Netboot.IpxeScriptURL
+
+	return &Intf{Dhcp: d, Netboot: n}, nil
+}
+
+func (c *Conn) setDHCPOpts(ctx context.Context, m *dhcpv4.DHCPv4, d Dhcp) []dhcpv4.Modifier {
+	// need to handle option 82
+
 	var mods []dhcpv4.Modifier
 	mods = append(mods,
-		dhcpv4.WithDNS(net.IP{8, 8, 8, 8}),
-		dhcpv4.WithNetmask(net.IPMask{255, 255, 255, 0}),
-		dhcpv4.WithRouter(net.IP{192, 168, 2, 1}),
-		dhcpv4.WithLeaseTime(3600),
+		dhcpv4.WithDNS(d.NameServers...),
+		dhcpv4.WithDomainSearchList(d.DomainSearch...),
+		dhcpv4.WithGeneric(dhcpv4.OptionNTPServers, dhcpv4.OptNTPServers(d.NTPServers...).Value.ToBytes()),
+		dhcpv4.WithGeneric(dhcpv4.OptionBroadcastAddress, d.BroadcastAddress.IPAddr().IP),
+		dhcpv4.WithGeneric(dhcpv4.OptionDomainName, []byte(d.DomainName)),
+		dhcpv4.WithGeneric(dhcpv4.OptionHostName, []byte(d.Hostname)),
+		dhcpv4.WithNetmask(d.SubnetMask),
+		dhcpv4.WithRouter(d.DefaultGateway.IPAddr().IP),
+		dhcpv4.WithLeaseTime(d.LeaseTime),
 		dhcpv4.WithServerIP(net.IP{192, 168, 2, 225}),
-		dhcpv4.WithYourIP(net.IP{192, 168, 2, 152}),
-		dhcpv4.WithGeneric(dhcpv4.OptionServerIdentifier, net.IP{192, 168, 1, 225}),
+		dhcpv4.WithYourIP(d.IPAddress.IPAddr().IP),
+		dhcpv4.WithGeneric(dhcpv4.OptionServerIdentifier, net.IP{192, 168, 2, 225}),
 	)
 
 	return mods
@@ -60,7 +206,7 @@ func (c *Conn) setDHCPOpts(ctx context.Context, m *dhcpv4.DHCPv4) []dhcpv4.Modif
 // - ipport for http ipxe binary
 // - url for ipxe script
 // - user class (defaults to "Tinkerbell")
-func (c *Conn) setNetworkBootOpts(ctx context.Context, m *dhcpv4.DHCPv4, pxeAllowed bool) func(d *dhcpv4.DHCPv4) {
+func (c *Conn) setNetworkBootOpts(ctx context.Context, m *dhcpv4.DHCPv4, n Netboot) func(d *dhcpv4.DHCPv4) {
 	// m is the received DHCPv4 packet.
 	// d is the reply packet we are building.
 	withNetboot := func(d *dhcpv4.DHCPv4) {
@@ -75,7 +221,7 @@ func (c *Conn) setNetworkBootOpts(ctx context.Context, m *dhcpv4.DHCPv4, pxeAllo
 			Host:   "192.168.2.225:8080",
 		} // needs to come from the data returned from Tink server.
 		d.BootFileName = "/netboot-not-allowed"
-		if pxeAllowed {
+		if n.AllowPxe { // this should probably be the first thing checked?
 			uClass := UserClass(string(m.GetOneOption(dhcpv4.OptionUserClassInformation))) // userClass returns the user class, option 77.
 			opt60 := ""                                                                    // client type, option 60, normally pxeClient or httpClient.
 			if strings.HasPrefix(string(m.GetOneOption(dhcpv4.OptionClassIdentifier)), string(httpClient)) {

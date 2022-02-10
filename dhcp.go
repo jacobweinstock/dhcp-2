@@ -81,20 +81,23 @@ func (s *Server) handleFunc(conn net.PacketConn, peer net.Addr, m *dhcpv4.DHCPv4
 		reply = s.handleRequest(s.ctx, m)
 	case dhcpv4.MessageTypeRelease:
 		s.handleRelease(s.ctx, m)
-		return
+
 	default:
 		s.Log.Info("received unknown message type", "type", mt)
 	}
 	//s.Log.Info(reply.Summary())
-	if _, err := conn.WriteTo(reply.ToBytes(), peer); err != nil {
-		s.Log.Error(err, "failed to send DHCP")
+	if reply != nil {
+		if _, err := conn.WriteTo(reply.ToBytes(), peer); err != nil {
+			s.Log.Error(err, "failed to send DHCP")
+		}
 	}
 }
 
 func (s *Server) handleDiscover(ctx context.Context, m *dhcpv4.DHCPv4) *dhcpv4.DHCPv4 {
-	s.Log.Info("received discover, sending offer")
+	s.Log.Info("received discover packet")
 	mods, err := s.Backend.Read(ctx, m.ClientHWAddr, m)
 	if err != nil {
+		s.Log.Info("problem getting info from backend", "mac", m.ClientHWAddr, "error", err)
 		return nil
 	}
 	mods = append(mods, dhcpv4.WithMessageType(dhcpv4.MessageTypeOffer))
@@ -102,14 +105,15 @@ func (s *Server) handleDiscover(ctx context.Context, m *dhcpv4.DHCPv4) *dhcpv4.D
 	if err != nil {
 		return nil
 	}
-
+	s.Log.Info("sending offer packet")
 	return reply
 }
 
 func (s *Server) handleRequest(ctx context.Context, m *dhcpv4.DHCPv4) *dhcpv4.DHCPv4 {
-	s.Log.Info("received request, sending ack")
+	s.Log.Info("received request packet")
 	mods, err := s.Backend.Read(ctx, m.ClientHWAddr, m)
 	if err != nil {
+		s.Log.Info("problem getting info from backend", "mac", m.ClientHWAddr, "error", err)
 		return nil
 	}
 	mods = append(mods, dhcpv4.WithMessageType(dhcpv4.MessageTypeAck))
@@ -117,7 +121,7 @@ func (s *Server) handleRequest(ctx context.Context, m *dhcpv4.DHCPv4) *dhcpv4.DH
 	if err != nil {
 		return nil
 	}
-
+	s.Log.Info("sending ack packet")
 	return reply
 }
 
