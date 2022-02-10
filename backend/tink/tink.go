@@ -23,11 +23,18 @@ type Conn struct {
 }
 
 func (c *Conn) Read(ctx context.Context, mac net.HardwareAddr, m *dhcpv4.DHCPv4) ([]dhcpv4.Modifier, error) {
-	var withNetboot func(m *dhcpv4.DHCPv4)
+	var mods []dhcpv4.Modifier
+	mods = append(mods, c.setDHCPOpts(ctx, m)...)
 	if !c.NetbootDisabled {
-		withNetboot = c.setNetworkBootOpts(ctx, m, true) // true needs to come from the data returned from Tink server.
+		mods = append(mods, c.setNetworkBootOpts(ctx, m, true)) // true needs to come from the data returned from Tink server.)
 	}
-	mods := []dhcpv4.Modifier{
+
+	return mods, nil
+}
+
+func (c *Conn) setDHCPOpts(ctx context.Context, m *dhcpv4.DHCPv4) []dhcpv4.Modifier {
+	var mods []dhcpv4.Modifier
+	mods = append(mods,
 		dhcpv4.WithDNS(net.IP{8, 8, 8, 8}),
 		dhcpv4.WithNetmask(net.IPMask{255, 255, 255, 0}),
 		dhcpv4.WithRouter(net.IP{192, 168, 2, 1}),
@@ -35,12 +42,9 @@ func (c *Conn) Read(ctx context.Context, mac net.HardwareAddr, m *dhcpv4.DHCPv4)
 		dhcpv4.WithServerIP(net.IP{192, 168, 2, 225}),
 		dhcpv4.WithYourIP(net.IP{192, 168, 2, 152}),
 		dhcpv4.WithGeneric(dhcpv4.OptionServerIdentifier, net.IP{192, 168, 1, 225}),
+	)
 
-		// netboot options
-		withNetboot,
-	}
-
-	return mods, nil
+	return mods
 }
 
 // setNetworkBootOpts purpose is to sets 2 or 3 values. 2 DHCP headers and optionally 1 DHCP option (60).
@@ -50,6 +54,12 @@ func (c *Conn) Read(ctx context.Context, mac net.HardwareAddr, m *dhcpv4.DHCPv4)
 // DHCP option
 // option 60: Class Identifier. https://www.rfc-editor.org/rfc/rfc2132.html#section-9.13
 // option 60 is set if the client's option 60 (Class Identifier) starts with HTTPClient.
+//
+// info neeeded:
+// - ipport for tftp ipxe binary
+// - ipport for http ipxe binary
+// - url for ipxe script
+// - user class (defaults to "Tinkerbell")
 func (c *Conn) setNetworkBootOpts(ctx context.Context, m *dhcpv4.DHCPv4, pxeAllowed bool) func(d *dhcpv4.DHCPv4) {
 	// m is the received DHCPv4 packet.
 	// d is the reply packet we are building.
