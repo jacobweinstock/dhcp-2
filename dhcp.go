@@ -14,7 +14,7 @@ import (
 
 type BackendReader interface {
 	// Read from a backend and return DHCP headers and options based on the mac address.
-	Read(context.Context, net.HardwareAddr) ([]dhcpv4.Modifier, error)
+	Read(context.Context, net.HardwareAddr, *dhcpv4.DHCPv4) ([]dhcpv4.Modifier, error)
 }
 
 type Server struct {
@@ -31,10 +31,33 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 		IP:   net.ParseIP("0.0.0.0"),
 		Port: s.ListenAddr.UDPAddr().Port,
 	}
-	s.Backend = &tink.Conn{}
+	s.Backend = &tink.Conn{
+		Log: s.Log,
+	}
 
 	// server4.NewServer() will isolate listening to the specific interface.
 	srv, err := server4.NewServer(getInterfaceByIP(s.ListenAddr.IP().String()), conn, s.handleFunc)
+	if err != nil {
+		return err
+	}
+
+	g, ctx := errgroup.WithContext(ctx)
+	g.Go(func() error {
+		return srv.Serve()
+	})
+
+	<-ctx.Done()
+
+	return srv.Close()
+}
+
+func (s *Server) Serve(ctx context.Context, conn net.PacketConn) error {
+	s.Backend = &tink.Conn{
+		Log: s.Log,
+	}
+
+	// server4.NewServer() will isolate listening to the specific interface.
+	srv, err := server4.NewServer("", nil, s.handleFunc, server4.WithConn(conn))
 	if err != nil {
 		return err
 	}
@@ -62,7 +85,7 @@ func (s *Server) handleFunc(conn net.PacketConn, peer net.Addr, m *dhcpv4.DHCPv4
 	default:
 		s.Log.Info("received unknown message type", "type", mt)
 	}
-	s.Log.Info(reply.Summary())
+	//s.Log.Info(reply.Summary())
 	if _, err := conn.WriteTo(reply.ToBytes(), peer); err != nil {
 		s.Log.Error(err, "failed to send DHCP")
 	}
@@ -70,7 +93,7 @@ func (s *Server) handleFunc(conn net.PacketConn, peer net.Addr, m *dhcpv4.DHCPv4
 
 func (s *Server) handleDiscover(ctx context.Context, m *dhcpv4.DHCPv4) *dhcpv4.DHCPv4 {
 	s.Log.Info("received discover, sending offer")
-	mods, err := s.Backend.Read(ctx, m.ClientHWAddr)
+	mods, err := s.Backend.Read(ctx, m.ClientHWAddr, m)
 	if err != nil {
 		return nil
 	}
@@ -79,12 +102,13 @@ func (s *Server) handleDiscover(ctx context.Context, m *dhcpv4.DHCPv4) *dhcpv4.D
 	if err != nil {
 		return nil
 	}
+
 	return reply
 }
 
 func (s *Server) handleRequest(ctx context.Context, m *dhcpv4.DHCPv4) *dhcpv4.DHCPv4 {
 	s.Log.Info("received request, sending ack")
-	mods, err := s.Backend.Read(ctx, m.ClientHWAddr)
+	mods, err := s.Backend.Read(ctx, m.ClientHWAddr, m)
 	if err != nil {
 		return nil
 	}
@@ -93,6 +117,7 @@ func (s *Server) handleRequest(ctx context.Context, m *dhcpv4.DHCPv4) *dhcpv4.DH
 	if err != nil {
 		return nil
 	}
+
 	return reply
 }
 
