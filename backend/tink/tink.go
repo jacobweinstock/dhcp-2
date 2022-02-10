@@ -43,6 +43,13 @@ func (c *Conn) Read(ctx context.Context, mac net.HardwareAddr, m *dhcpv4.DHCPv4)
 	return mods, nil
 }
 
+// setNetworkBootOpts purpose is to sets 2 or 3 values. 2 DHCP headers and optionally 1 DHCP option (60).
+// DHCP Headers (https://datatracker.ietf.org/doc/html/rfc2131#section-2)
+// 'siaddr': IP address of next bootstrap server.
+// 'file': Client boot file name.
+// DHCP option
+// option 60: Class Identifier. https://www.rfc-editor.org/rfc/rfc2132.html#section-9.13
+// option 60 is set if the client's option 60 (Class Identifier) starts with HTTPClient.
 func (c *Conn) setNetworkBootOpts(ctx context.Context, m *dhcpv4.DHCPv4, pxeAllowed bool) func(d *dhcpv4.DHCPv4) {
 	// m is the received DHCPv4 packet.
 	// d is the reply packet we are building.
