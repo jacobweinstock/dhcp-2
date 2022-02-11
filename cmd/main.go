@@ -25,8 +25,8 @@ func main() {
 		Log:               l,
 		ListenAddr:        netaddr.IPPortFrom(netaddr.IPv4(192, 168, 2, 225), 67),
 		IPAddr:            netaddr.IPv4(192, 168, 2, 225),
-		IPXEBinServerTFTP: netaddr.IPPortFrom(netaddr.IPv4(192, 168, 2, 225), 69),
-		IPXEBinServerHTTP: &url.URL{Scheme: "http", Host: "192.168.2.225:8080"},
+		IPXEBinServerTFTP: netaddr.IPPortFrom(netaddr.IPv4(192, 168, 1, 34), 69),
+		IPXEBinServerHTTP: &url.URL{Scheme: "http", Host: "192.168.1.34:8080"},
 		IPXEScriptURL:     &url.URL{Scheme: "https", Host: "boot.netboot.xyz"},
 	}
 	l.Info("starting server", "addr", s.ListenAddr)

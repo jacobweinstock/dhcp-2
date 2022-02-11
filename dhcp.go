@@ -109,7 +109,6 @@ func (s *Server) handleFunc(conn net.PacketConn, peer net.Addr, m *dhcpv4.DHCPv4
 	}
 	// s.Log.Info(reply.Summary())
 	if reply != nil {
-
 		if _, err := conn.WriteTo(reply.ToBytes(), peer); err != nil {
 			s.Log.Error(err, "failed to send DHCP")
 		}

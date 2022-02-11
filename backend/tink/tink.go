@@ -202,8 +202,15 @@ func (t TinkIntf) translate() (*Intf, error) {
 	return &Intf{Dhcp: d, Netboot: n}, nil
 }
 
-func (c *Conn) setDHCPOpts(ctx context.Context, m *dhcpv4.DHCPv4, d Dhcp) []dhcpv4.Modifier {
+func (c *Conn) setDHCPOpts(_ context.Context, m *dhcpv4.DHCPv4, d Dhcp) []dhcpv4.Modifier {
 	// need to handle option 82
+
+	prl := m.ParameterRequestList()
+	list := map[uint8]string{}
+	for _, o := range prl {
+		list[o.Code()] = o.String()
+	}
+	c.Log.Info("DEBUGGING", "option 55", list)
 
 	var mods []dhcpv4.Modifier
 	mods = append(mods,
@@ -222,10 +229,10 @@ func (c *Conn) setDHCPOpts(ctx context.Context, m *dhcpv4.DHCPv4, d Dhcp) []dhcp
 	return mods
 }
 
-// setNetworkBootOpts purpose is to sets 2 or 3 values. 2 DHCP headers and optionally 1 DHCP option (60).
+// setNetworkBootOpts purpose is to sets 2 or 3 values. 2 DHCP headers, option 43 and optionally 1 DHCP option (60).
 // DHCP Headers (https://datatracker.ietf.org/doc/html/rfc2131#section-2)
-// 'siaddr': IP address of next bootstrap server.
-// 'file': Client boot file name.
+// 'siaddr': IP address of next bootstrap server. represented below as `.ServerIPAddr`.
+// 'file': Client boot file name. represented below as `.BootFileName`.
 // DHCP option
 // option 60: Class Identifier. https://www.rfc-editor.org/rfc/rfc2132.html#section-9.13
 // option 60 is set if the client's option 60 (Class Identifier) starts with HTTPClient.
@@ -234,8 +241,8 @@ func (c *Conn) setDHCPOpts(ctx context.Context, m *dhcpv4.DHCPv4, d Dhcp) []dhcp
 // - ipport for tftp ipxe binary
 // - ipport for http ipxe binary
 // - url for ipxe script
-// - user class (defaults to "Tinkerbell")
-func (c *Conn) setNetworkBootOpts(ctx context.Context, m *dhcpv4.DHCPv4, n Netboot) func(d *dhcpv4.DHCPv4) {
+// - user class (defaults to "Tinkerbell").
+func (c *Conn) setNetworkBootOpts(_ context.Context, m *dhcpv4.DHCPv4, n Netboot) func(d *dhcpv4.DHCPv4) {
 	// m is the received DHCPv4 packet.
 	// d is the reply packet we are building.
 	withNetboot := func(d *dhcpv4.DHCPv4) {
@@ -245,10 +252,7 @@ func (c *Conn) setNetworkBootOpts(ctx context.Context, m *dhcpv4.DHCPv4, n Netbo
 			c.Log.Error(fmt.Errorf("unable to find bootfile for arch"), "arch", a)
 			return
 		}
-		/*u := &url.URL{
-			Scheme: "http",
-			Host:   "192.168.2.225:8080",
-		}*/ // needs to come from the data returned from Tink server.
+
 		d.BootFileName = "/netboot-not-allowed"
 		if n.AllowPxe { // this should probably be the first thing checked?
 			uClass := UserClass(string(m.GetOneOption(dhcpv4.OptionUserClassInformation))) // userClass returns the user class, option 77.
@@ -257,9 +261,9 @@ func (c *Conn) setNetworkBootOpts(ctx context.Context, m *dhcpv4.DHCPv4, n Netbo
 				opt60 = string(httpClient)
 			}
 			mac := m.ClientHWAddr
-			d.BootFileName = c.bootfileName(mac, uClass, opt60, bin, c.IPXEBinServer, c.IPXEBinServerHTTP, c.IPXEScriptURL) // netaddr.IPPort{}, u, "auto.ipxe" need to come from the data returned from Tink server.
+			// do we need to set d.ServerIPAddr? testing against virtualbox and proxmox showed that it was not needed.
+			d.BootFileName, d.ServerIPAddr = c.bootfileName(mac, uClass, opt60, bin, c.IPXEBinServer, c.IPXEBinServerHTTP, c.IPXEScriptURL)
 		}
-		d.ServerIPAddr = net.IPv4(192, 168, 2, 225) //net.ParseIP(u.String()) //net.IPv4(192, 168, 1, 225) // this needs to come from the data returned from Tink server?
 		pxe := dhcpv4.Options{
 			// PXE Boot Server Discovery Control - bypass, just boot from filename.
 			6: []byte{8}, // or []byte{8}
@@ -276,7 +280,8 @@ func (c *Conn) setNetworkBootOpts(ctx context.Context, m *dhcpv4.DHCPv4, n Netbo
 	return withNetboot
 }
 
-func (c *Conn) bootfileName(mac net.HardwareAddr, uClass UserClass, opt60, bin string, tftp netaddr.IPPort, ipxe, iscript *url.URL) string {
+func (c *Conn) bootfileName(mac net.HardwareAddr, uClass UserClass, opt60, bin string, tftp netaddr.IPPort, ipxe, iscript *url.URL) (string, net.IP) {
+	var nextServer net.IP
 	var bootfile string
 	// If a machine is in an ipxe boot loop, it is likely to be that we arent matching on IPXE or Tinkerbell.
 	// if the "iPXE" user class is found it means we arent in our custom version of ipxe, but because of the option 43 we're setting we need to give a full tftp url from which to boot.
@@ -285,13 +290,16 @@ func (c *Conn) bootfileName(mac net.HardwareAddr, uClass UserClass, opt60, bin s
 		bootfile = iscript.String() // "https://boot.netboot.xyz" // fmt.Sprintf("%s/%s/%s", ipxe, mac.String(), iscript)
 	case clientType(opt60) == httpClient: // Check the client type from option 60.
 		bootfile = fmt.Sprintf("%s/%s/%s", ipxe, mac.String(), bin)
+		nextServer = net.IP(ipxe.Host)
 	case uClass == IPXE:
 		bootfile = fmt.Sprintf("tftp://%v/%v/%v", tftp.String(), mac.String(), bin)
+		nextServer = tftp.UDPAddr().IP
 	default:
 		bootfile = filepath.Join(mac.String(), bin)
+		nextServer = tftp.UDPAddr().IP
 	}
 	c.Log.Info("DEBUGGING", "bootfile", bootfile)
-	return bootfile
+	return bootfile, nextServer
 }
 
 func arch(d *dhcpv4.DHCPv4) iana.Arch {
