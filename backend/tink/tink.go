@@ -125,6 +125,7 @@ func (c *Conn) Read(ctx context.Context, mac net.HardwareAddr, m *dhcpv4.DHCPv4)
 }
 
 func (t TinkIntf) translate() (*Intf, error) {
+	// TODO(jacobweinstock): add len validations to all options that take strings or a string slice?
 	d := Dhcp{}
 	n := Netboot{}
 
