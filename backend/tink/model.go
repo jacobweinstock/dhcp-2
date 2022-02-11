@@ -10,6 +10,7 @@ type TinkRecord struct {
 	ID      string      `json:"id"`
 	Network TinkNetwork `json:"network"`
 }
+
 type TinkDhcp struct {
 	MacAddress       string   `json:"mac_address"`       // chaddr DHCP header.
 	IPAddress        string   `json:"ip_address"`        // yiaddr DHCP header.
@@ -23,14 +24,17 @@ type TinkDhcp struct {
 	LeaseTime        int      `json:"lease_time"`        // DHCP option 51.
 	DomainSearch     []string `json:"domain_search"`     // DHCP option 119.
 }
+
 type TinkNetboot struct {
 	AllowPxe      bool   `json:"allow_pxe"`       // If true, the client will be provided netboot options in the DHCP offer/ack.
 	IpxeScriptURL string `json:"ipxe_script_url"` // Overrides default value of that is passed into DHCP on startup.
 }
+
 type TinkIntf struct {
 	Dhcp    TinkDhcp    `json:"dhcp"`
 	Netboot TinkNetboot `json:"netboot"`
 }
+
 type TinkNetwork struct {
 	Interfaces []TinkIntf `json:"interfaces"`
 }
@@ -39,6 +43,7 @@ type Record struct {
 	ID      string
 	Network Network
 }
+
 type Dhcp struct {
 	MacAddress       net.HardwareAddr // chaddr DHCP header.
 	IPAddress        netaddr.IP       // yiaddr DHCP header.
@@ -52,14 +57,17 @@ type Dhcp struct {
 	LeaseTime        uint32           // DHCP option 51.
 	DomainSearch     []string         // DHCP option 119.
 }
+
 type Netboot struct {
 	AllowPxe      bool   // If true, the client will be provided netboot options in the DHCP offer/ack.
 	IpxeScriptURL string // Overrides default value of that is passed into DHCP on startup.
 }
+
 type Intf struct {
 	Dhcp    Dhcp
 	Netboot Netboot
 }
+
 type Network struct {
 	Interfaces []Intf
 }

@@ -29,7 +29,34 @@ var tr = TinkRecord{
 						"8.8.8.8",
 						"1.1.1.1",
 					},
-					Hostname:         "pxe-test",
+					Hostname:         "pxe-virtualbox",
+					DomainName:       "weinstocklabs.com",
+					BroadcastAddress: "192.168.2.255",
+					NTPServers: []string{
+						"132.163.96.2",
+						"132.163.96.3",
+					},
+					LeaseTime: 3600,
+					DomainSearch: []string{
+						"weinstocklabs.com",
+					},
+				},
+				Netboot: TinkNetboot{
+					AllowPxe:      true,
+					IpxeScriptURL: "",
+				},
+			},
+			{
+				Dhcp: TinkDhcp{
+					MacAddress:     "86:96:b0:6e:ca:36",
+					IPAddress:      "192.168.2.153",
+					SubnetMask:     "255.255.255.0",
+					DefaultGateway: "192.168.2.1",
+					NameServers: []string{
+						"8.8.8.8",
+						"1.1.1.1",
+					},
+					Hostname:         "pxe-proxmox",
 					DomainName:       "weinstocklabs.com",
 					BroadcastAddress: "192.168.2.255",
 					NTPServers: []string{
@@ -56,6 +83,10 @@ type Conn struct {
 	ServerCertURL   string
 	UserClass       UserClass
 	Log             logr.Logger
+	// iPXE binary server IP:Port
+	IPXEBinServer     netaddr.IPPort
+	IPXEBinServerHTTP *url.URL
+	IPXEScriptURL     *url.URL
 }
 
 func (c *Conn) Read(ctx context.Context, mac net.HardwareAddr, m *dhcpv4.DHCPv4) ([]dhcpv4.Modifier, error) {
@@ -178,16 +209,14 @@ func (c *Conn) setDHCPOpts(ctx context.Context, m *dhcpv4.DHCPv4, d Dhcp) []dhcp
 	mods = append(mods,
 		dhcpv4.WithDNS(d.NameServers...),
 		dhcpv4.WithDomainSearchList(d.DomainSearch...),
-		dhcpv4.WithGeneric(dhcpv4.OptionNTPServers, dhcpv4.OptNTPServers(d.NTPServers...).Value.ToBytes()),
+		dhcpv4.WithOption(dhcpv4.OptNTPServers(d.NTPServers...)),
 		dhcpv4.WithGeneric(dhcpv4.OptionBroadcastAddress, d.BroadcastAddress.IPAddr().IP),
 		dhcpv4.WithGeneric(dhcpv4.OptionDomainName, []byte(d.DomainName)),
 		dhcpv4.WithGeneric(dhcpv4.OptionHostName, []byte(d.Hostname)),
 		dhcpv4.WithNetmask(d.SubnetMask),
 		dhcpv4.WithRouter(d.DefaultGateway.IPAddr().IP),
 		dhcpv4.WithLeaseTime(d.LeaseTime),
-		dhcpv4.WithServerIP(net.IP{192, 168, 2, 225}),
 		dhcpv4.WithYourIP(d.IPAddress.IPAddr().IP),
-		dhcpv4.WithGeneric(dhcpv4.OptionServerIdentifier, net.IP{192, 168, 2, 225}),
 	)
 
 	return mods
@@ -216,10 +245,10 @@ func (c *Conn) setNetworkBootOpts(ctx context.Context, m *dhcpv4.DHCPv4, n Netbo
 			c.Log.Error(fmt.Errorf("unable to find bootfile for arch"), "arch", a)
 			return
 		}
-		u := &url.URL{
+		/*u := &url.URL{
 			Scheme: "http",
 			Host:   "192.168.2.225:8080",
-		} // needs to come from the data returned from Tink server.
+		}*/ // needs to come from the data returned from Tink server.
 		d.BootFileName = "/netboot-not-allowed"
 		if n.AllowPxe { // this should probably be the first thing checked?
 			uClass := UserClass(string(m.GetOneOption(dhcpv4.OptionUserClassInformation))) // userClass returns the user class, option 77.
@@ -228,7 +257,7 @@ func (c *Conn) setNetworkBootOpts(ctx context.Context, m *dhcpv4.DHCPv4, n Netbo
 				opt60 = string(httpClient)
 			}
 			mac := m.ClientHWAddr
-			d.BootFileName = c.bootfileName(mac, uClass, opt60, bin, netaddr.IPPortFrom(netaddr.IPv4(192, 168, 2, 225), 69), u, "") // netaddr.IPPort{}, u, "auto.ipxe" need to come from the data returned from Tink server.
+			d.BootFileName = c.bootfileName(mac, uClass, opt60, bin, c.IPXEBinServer, c.IPXEBinServerHTTP, c.IPXEScriptURL) // netaddr.IPPort{}, u, "auto.ipxe" need to come from the data returned from Tink server.
 		}
 		d.ServerIPAddr = net.IPv4(192, 168, 2, 225) //net.ParseIP(u.String()) //net.IPv4(192, 168, 1, 225) // this needs to come from the data returned from Tink server?
 		pxe := dhcpv4.Options{
@@ -247,26 +276,21 @@ func (c *Conn) setNetworkBootOpts(ctx context.Context, m *dhcpv4.DHCPv4, n Netbo
 	return withNetboot
 }
 
-func (c *Conn) bootfileName(mac net.HardwareAddr, uClass UserClass, opt60, bin string, tftp netaddr.IPPort, ipxe *url.URL, iscript string) string {
+func (c *Conn) bootfileName(mac net.HardwareAddr, uClass UserClass, opt60, bin string, tftp netaddr.IPPort, ipxe, iscript *url.URL) string {
 	var bootfile string
 	// If a machine is in an ipxe boot loop, it is likely to be that we arent matching on IPXE or Tinkerbell.
 	// if the "iPXE" user class is found it means we arent in our custom version of ipxe, but because of the option 43 we're setting we need to give a full tftp url from which to boot.
 	switch { // order matters here.
 	case uClass == Tinkerbell, (c.UserClass != "" && uClass == c.UserClass): // this case gets us out of an ipxe boot loop.
-		bootfile = "https://boot.netboot.xyz" // fmt.Sprintf("%s/%s/%s", ipxe, mac.String(), iscript)
+		bootfile = iscript.String() // "https://boot.netboot.xyz" // fmt.Sprintf("%s/%s/%s", ipxe, mac.String(), iscript)
 	case clientType(opt60) == httpClient: // Check the client type from option 60.
 		bootfile = fmt.Sprintf("%s/%s/%s", ipxe, mac.String(), bin)
 	case uClass == IPXE:
-		u := &url.URL{
-			Scheme: "tftp",
-			Host:   tftp.String(),
-			Path:   fmt.Sprintf("%v/%v", mac.String(), bin),
-		}
-		bootfile = u.String()
+		bootfile = fmt.Sprintf("tftp://%v/%v/%v", tftp.String(), mac.String(), bin)
 	default:
 		bootfile = filepath.Join(mac.String(), bin)
 	}
-
+	c.Log.Info("DEBUGGING", "bootfile", bootfile)
 	return bootfile
 }
 

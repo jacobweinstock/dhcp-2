@@ -3,6 +3,7 @@ package dhcp
 import (
 	"context"
 	"net"
+	"net/url"
 
 	"github.com/go-logr/logr"
 	"github.com/insomniacslk/dhcp/dhcpv4"
@@ -18,10 +19,26 @@ type BackendReader interface {
 }
 
 type Server struct {
-	ctx        context.Context
-	Log        logr.Logger
+	ctx context.Context
+	Log logr.Logger
+
+	// ListenAddr is the address to listen on for DHCP requests.
 	ListenAddr netaddr.IPPort
-	Backend    BackendReader
+
+	// IPAddr is the IP address to use in DHCP requests.
+	// Option 54 and maybe sname DHCP header.
+	IPAddr netaddr.IP
+
+	// iPXE binary server IP:Port serving via TFTP.
+	IPXEBinServerTFTP netaddr.IPPort
+
+	// IPXEBinServerHTTP is the URL to the IPXE binary server serving via HTTP(s).
+	IPXEBinServerHTTP *url.URL
+
+	// IPXEScriptURL is the URL to the IPXE script to use.
+	IPXEScriptURL *url.URL
+
+	Backend BackendReader
 }
 
 // New returns a proxy DHCP server for the Handler.
@@ -32,7 +49,10 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 		Port: s.ListenAddr.UDPAddr().Port,
 	}
 	s.Backend = &tink.Conn{
-		Log: s.Log,
+		Log:               s.Log,
+		IPXEBinServer:     s.IPXEBinServerTFTP,
+		IPXEBinServerHTTP: s.IPXEBinServerHTTP,
+		IPXEScriptURL:     s.IPXEScriptURL,
 	}
 
 	// server4.NewServer() will isolate listening to the specific interface.
@@ -53,7 +73,10 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 
 func (s *Server) Serve(ctx context.Context, conn net.PacketConn) error {
 	s.Backend = &tink.Conn{
-		Log: s.Log,
+		Log:               s.Log,
+		IPXEBinServer:     s.IPXEBinServerTFTP,
+		IPXEBinServerHTTP: s.IPXEBinServerHTTP,
+		IPXEScriptURL:     s.IPXEScriptURL,
 	}
 
 	// server4.NewServer() will isolate listening to the specific interface.
@@ -81,12 +104,12 @@ func (s *Server) handleFunc(conn net.PacketConn, peer net.Addr, m *dhcpv4.DHCPv4
 		reply = s.handleRequest(s.ctx, m)
 	case dhcpv4.MessageTypeRelease:
 		s.handleRelease(s.ctx, m)
-
 	default:
 		s.Log.Info("received unknown message type", "type", mt)
 	}
-	//s.Log.Info(reply.Summary())
+	// s.Log.Info(reply.Summary())
 	if reply != nil {
+
 		if _, err := conn.WriteTo(reply.ToBytes(), peer); err != nil {
 			s.Log.Error(err, "failed to send DHCP")
 		}
@@ -97,10 +120,10 @@ func (s *Server) handleDiscover(ctx context.Context, m *dhcpv4.DHCPv4) *dhcpv4.D
 	s.Log.Info("received discover packet")
 	mods, err := s.Backend.Read(ctx, m.ClientHWAddr, m)
 	if err != nil {
-		s.Log.Info("problem getting info from backend", "mac", m.ClientHWAddr, "error", err)
+		s.Log.Info("not sending DHCP OFFER", "mac", m.ClientHWAddr, "error", err)
 		return nil
 	}
-	mods = append(mods, dhcpv4.WithMessageType(dhcpv4.MessageTypeOffer))
+	mods = append(mods, dhcpv4.WithMessageType(dhcpv4.MessageTypeOffer), dhcpv4.WithGeneric(dhcpv4.OptionServerIdentifier, s.ListenAddr.UDPAddr().IP))
 	reply, err := dhcpv4.NewReplyFromRequest(m, mods...)
 	if err != nil {
 		return nil
@@ -113,10 +136,10 @@ func (s *Server) handleRequest(ctx context.Context, m *dhcpv4.DHCPv4) *dhcpv4.DH
 	s.Log.Info("received request packet")
 	mods, err := s.Backend.Read(ctx, m.ClientHWAddr, m)
 	if err != nil {
-		s.Log.Info("problem getting info from backend", "mac", m.ClientHWAddr, "error", err)
+		s.Log.Info("not sending DHCP ACK", "mac", m.ClientHWAddr, "error", err)
 		return nil
 	}
-	mods = append(mods, dhcpv4.WithMessageType(dhcpv4.MessageTypeAck))
+	mods = append(mods, dhcpv4.WithMessageType(dhcpv4.MessageTypeAck), dhcpv4.WithGeneric(dhcpv4.OptionServerIdentifier, s.ListenAddr.UDPAddr().IP))
 	reply, err := dhcpv4.NewReplyFromRequest(m, mods...)
 	if err != nil {
 		return nil
@@ -125,7 +148,7 @@ func (s *Server) handleRequest(ctx context.Context, m *dhcpv4.DHCPv4) *dhcpv4.DH
 	return reply
 }
 
-func (s *Server) handleRelease(ctx context.Context, m *dhcpv4.DHCPv4) {
+func (s *Server) handleRelease(_ context.Context, _ *dhcpv4.DHCPv4) {
 	s.Log.Info("received release, no response required")
 }
 
