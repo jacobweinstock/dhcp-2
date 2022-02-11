@@ -1,6 +1,8 @@
-package tink
+package dhcp
 
-import "github.com/insomniacslk/dhcp/iana"
+import (
+	"github.com/insomniacslk/dhcp/iana"
+)
 
 // UserClass is DHCP option 77 (https://www.rfc-editor.org/rfc/rfc3004.html).
 type UserClass string

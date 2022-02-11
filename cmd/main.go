@@ -10,6 +10,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/go-logr/zerologr"
 	"github.com/jacobweinstock/dhcp"
+	"github.com/jacobweinstock/dhcp/backend/file"
 	"github.com/rs/zerolog"
 	"inet.af/netaddr"
 )
@@ -21,6 +22,12 @@ func main() {
 	l := defaultLogger("debug")
 	l = l.WithName("github.com/tinkerbell/dhcp")
 
+	fp := "./example/dhcp.yaml"
+	fb, err := file.NewFile(fp, l)
+	if err != nil {
+		panic(err)
+	}
+	go fb.StartWatcher()
 	s := dhcp.Server{
 		Log:               l,
 		ListenAddr:        netaddr.IPPortFrom(netaddr.IPv4(192, 168, 2, 225), 67),
@@ -28,6 +35,8 @@ func main() {
 		IPXEBinServerTFTP: netaddr.IPPortFrom(netaddr.IPv4(192, 168, 1, 34), 69),
 		IPXEBinServerHTTP: &url.URL{Scheme: "http", Host: "192.168.1.34:8080"},
 		IPXEScriptURL:     &url.URL{Scheme: "https", Host: "boot.netboot.xyz"},
+		NetbootEnabled:    true,
+		Backend:           fb,
 	}
 	l.Info("starting server", "addr", s.ListenAddr)
 	l.Error(s.ListenAndServe(ctx), "done")
