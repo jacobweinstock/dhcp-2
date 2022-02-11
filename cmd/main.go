@@ -11,6 +11,7 @@ import (
 	"github.com/go-logr/zerologr"
 	"github.com/jacobweinstock/dhcp"
 	"github.com/jacobweinstock/dhcp/backend/file"
+	"github.com/packethost/cacher/client"
 	"github.com/rs/zerolog"
 	"inet.af/netaddr"
 )
@@ -61,4 +62,12 @@ func defaultLogger(level string) logr.Logger {
 	zl = zl.Level(l)
 
 	return zerologr.New(&zl)
+}
+
+func cacher(useTLS string, certURL string, grpcAuthority string, f string) (client.CacherClient, error) {
+	os.Setenv("CACHER_USE_TLS", useTLS)
+	os.Setenv("CACHER_CERT_URL", certURL)
+	os.Setenv("CACHER_GRPC_AUTHORITY", grpcAuthority)
+	return client.New(f)
+	// defer cli.Conn.Close()
 }

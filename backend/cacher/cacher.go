@@ -3,34 +3,31 @@ package cacher
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
-	"os"
 
+	"github.com/go-logr/logr"
 	"github.com/jacobweinstock/dhcp/data"
 	"github.com/packethost/cacher/client"
 	"github.com/packethost/cacher/protos/cacher"
 	"github.com/pkg/errors"
+	"inet.af/netaddr"
 )
 
 type Conn struct {
 	Facility      string
+	Client        client.CacherClient
 	UseTLS        string
 	CertURL       string
 	GRPCAuthority string
+	DNSServers    []string
+	LeaseTime     uint32
 	data          DiscoveryCacher
+	Log           logr.Logger
 }
 
 func (c *Conn) Read(ctx context.Context, mac net.HardwareAddr) (*data.Dhcp, *data.Netboot, error) {
-	os.Setenv("CACHER_USE_TLS", c.UseTLS)
-	os.Setenv("CACHER_CERT_URL", c.CertURL)
-	os.Setenv("CACHER_GRPC_AUTHORITY", c.GRPCAuthority)
-	cli, err := client.New(c.Facility)
-	if err != nil {
-		return nil, nil, err
-	}
-	defer cli.Conn.Close()
-
-	hw, err := cli.ByMAC(ctx, &cacher.GetRequest{
+	hw, err := c.Client.ByMAC(ctx, &cacher.GetRequest{
 		MAC: mac.String(),
 	})
 	if err != nil {
@@ -52,6 +49,49 @@ func (c *Conn) translate() (*data.Dhcp, *data.Netboot, error) {
 	d.MacAddress = c.data.mac
 
 	// ip address
+	ip, err := netaddr.ParseIP(c.data.GetIP(c.data.MAC()).Address.String())
+	if err != nil {
+		return nil, nil, fmt.Errorf("error parsing IP from cacher data: %w", err)
+	}
+	d.IPAddress = ip
+
+	// subnet mask
+	d.SubnetMask = c.data.GetIP(c.data.MAC()).Netmask.DefaultMask()
+
+	// default gateway
+	dg, err := netaddr.ParseIP(c.data.GetIP(c.data.MAC()).Gateway.String())
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to parse default gateway from cacher data: %w", err)
+	}
+	d.DefaultGateway = dg
+
+	// name servers
+	for _, ns := range c.DNSServers {
+		n := net.ParseIP(ns)
+		if n == nil {
+			c.Log.Info("skipping invalid DNS server", "server", ns)
+			continue
+		}
+		d.NameServers = append(d.NameServers, net.ParseIP(ns))
+	}
+
+	// hostname
+	d.Hostname = c.data.instance().Hostname
+
+	// domain name
+
+	// broadcast address
+
+	// ntp servers
+
+	// lease time
+	d.LeaseTime = c.LeaseTime
+
+	// domain search
+
+	// netboot options
+	n.AllowPxe = c.data.AllowPXE
+	n.IpxeScriptURL = c.data.instance().IPXEScriptURL
 
 	return d, n, nil
 }
