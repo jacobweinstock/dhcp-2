@@ -29,11 +29,18 @@ func NewFile(f string, l logr.Logger) (*Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	watcher.Add(f)
+	if err := watcher.Add(f); err != nil {
+		return nil, err
+	}
+
+	d, err := readfile(f)
+	if err != nil {
+		return nil, err
+	}
 
 	return &Conn{
 		FilePath: f,
-		Data:     readfile(f),
+		Data:     d,
 		Watcher:  watcher,
 		Log:      l,
 	}, nil
@@ -42,10 +49,10 @@ func NewFile(f string, l logr.Logger) (*Conn, error) {
 func (c *Conn) Read(_ context.Context, mac net.HardwareAddr) (*data.Dhcp, *data.Netboot, error) {
 	// get data from file, translate it, then pass it into setDHCPOpts and setNetworkBootOpts
 	c.DataMu.RLock()
-	data := c.Data
+	d := c.Data
 	c.DataMu.RUnlock()
 	r := make(map[string]dhcp)
-	if err := yaml.Unmarshal(data, &r); err != nil {
+	if err := yaml.Unmarshal(d, &r); err != nil {
 		return nil, nil, fmt.Errorf("failed to marshal data: %w", err)
 	}
 	for k, v := range r {
@@ -155,38 +162,43 @@ type dhcp struct {
 	Netboot          netboot          `yaml:"netboot"`
 }
 
-func readfile(filePath string) []byte {
+func readfile(filePath string) ([]byte, error) {
 	f, err := os.Open(filePath)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	defer f.Close()
-	data, err := io.ReadAll(f)
+	d, err := io.ReadAll(f)
 	if err != nil {
-		fmt.Errorf("failed to read data from file: %w", err)
-		return nil
+		return nil, fmt.Errorf("failed to read data from file: %w", err)
 	}
-	return data
+	return d, nil
 }
 
-func (d *Conn) StartWatcher() {
+func (c *Conn) StartWatcher() {
 	for {
 		select {
-		case event, ok := <-d.Watcher.Events:
+		case event, ok := <-c.Watcher.Events:
 			if !ok {
 				continue
 			}
 			if event.Op&fsnotify.Write == fsnotify.Write {
-				d.Log.Info("file changed, updating cache")
-				d.DataMu.Lock()
-				d.Data = readfile(d.FilePath)
-				d.DataMu.Unlock()
+				c.Log.Info("file changed, updating cache")
+				c.DataMu.Lock()
+				d, err := readfile(c.FilePath)
+				if err != nil {
+					c.DataMu.Unlock()
+					c.Log.Error(err, "failed to read file", "file", c.FilePath)
+					break
+				}
+				c.Data = d
+				c.DataMu.Unlock()
 			}
-		case err, ok := <-d.Watcher.Errors:
+		case err, ok := <-c.Watcher.Errors:
 			if !ok {
 				continue
 			}
-			d.Log.Info("error watching file: %v", err)
+			c.Log.Info("error watching file: %v", err)
 		}
 	}
 }
