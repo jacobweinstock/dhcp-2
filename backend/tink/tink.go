@@ -190,7 +190,7 @@ func (t TinkIntf) translate() (*Intf, error) {
 	}
 
 	// lease time
-	// validation?
+	// TODO(jacobweinstock): write some validations. > 0, etc.
 	d.LeaseTime = uint32(t.Dhcp.LeaseTime)
 
 	// domain search
