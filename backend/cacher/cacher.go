@@ -10,7 +10,6 @@ import (
 	"github.com/jacobweinstock/dhcp/data"
 	"github.com/packethost/cacher/client"
 	"github.com/packethost/cacher/protos/cacher"
-	"github.com/pkg/errors"
 	"inet.af/netaddr"
 )
 
@@ -36,7 +35,7 @@ func (c *Conn) Read(ctx context.Context, mac net.HardwareAddr) (*data.Dhcp, *dat
 	b := []byte(hw.JSON)
 	d := &DiscoveryCacher{}
 	if err := json.Unmarshal(b, &d); err != nil {
-		return nil, nil, errors.Wrap(err, "error unmarshaling cacher data")
+		return nil, nil, fmt.Errorf("error unmarshaling cacher data: %w", err)
 	}
 
 	return c.translate()
