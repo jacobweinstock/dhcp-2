@@ -90,11 +90,6 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 		IP:   net.ParseIP("0.0.0.0"),
 		Port: s.ListenAddr.UDPAddr().Port,
 	}
-	/*
-		s.Backend = &tink.Conn{
-			Log: s.Log,
-		}
-	*/
 
 	// server4.NewServer() will isolate listening to the specific interface.
 	srv, err := server4.NewServer(getInterfaceByIP(s.ListenAddr.IP().String()), conn, s.handleFunc)

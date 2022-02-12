@@ -56,13 +56,9 @@ func (c *Conn) Read(_ context.Context, mac net.HardwareAddr) (*data.Dhcp, *data.
 		return nil, nil, fmt.Errorf("failed to marshal data: %w", err)
 	}
 	for k, v := range r {
-		if strings.TrimSpace(k) == strings.TrimSpace(mac.String()) {
-			// found a record for this mac
-			m, err := net.ParseMAC(k)
-			if err != nil {
-				return nil, nil, fmt.Errorf("failed to parse mac address: %w", err)
-			}
-			v.MacAddress = m
+		if strings.EqualFold(k, mac.String()) {
+			// found a record for this mac address
+			v.MacAddress = mac
 			return translate(v)
 		}
 	}
