@@ -7,6 +7,7 @@ require (
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-logr/logr v1.2.2
 	github.com/go-logr/zerologr v1.2.1
+	github.com/google/go-cmp v0.5.6
 	github.com/imdario/mergo v0.3.12
 	github.com/insomniacslk/dhcp v0.0.0-20211214070828-5297eed8f489
 	github.com/packethost/cacher v0.0.0-20211110202753-9b918bf0fe6d
