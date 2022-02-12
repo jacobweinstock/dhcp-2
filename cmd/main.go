@@ -24,7 +24,7 @@ func main() {
 	l := defaultLogger("debug")
 	l = l.WithName("github.com/tinkerbell/dhcp")
 
-	//b, err := BackendFile(l, "./example/dhcp.yaml")
+	// b, err := BackendFile(l, "./example/dhcp.yaml")
 	b, err := BackendTink(l)
 	if err != nil {
 		panic(err)
