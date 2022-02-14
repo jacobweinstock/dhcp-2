@@ -2,6 +2,7 @@ package dhcp
 
 import (
 	"context"
+	"fmt"
 	"net"
 
 	"github.com/insomniacslk/dhcp/dhcpv4"
@@ -20,7 +21,6 @@ func (s *Server) handleFunc(conn net.PacketConn, peer net.Addr, m *dhcpv4.DHCPv4
 		s.Log.Info("received unknown message type", "type", mt)
 	}
 	if reply != nil {
-		s.Log.Info("summary", "summary", reply.Summary())
 		if _, err := conn.WriteTo(reply.ToBytes(), peer); err != nil {
 			s.Log.Error(err, "failed to send DHCP")
 		}
@@ -34,9 +34,10 @@ func (s *Server) handleDiscover(ctx context.Context, m *dhcpv4.DHCPv4) *dhcpv4.D
 		s.Log.Info("not sending DHCP OFFER", "mac", m.ClientHWAddr, "error", err)
 		return nil
 	}
+	fmt.Println(s.IPAddr.IPAddr().IP)
 	mods := []dhcpv4.Modifier{
 		dhcpv4.WithMessageType(dhcpv4.MessageTypeOffer),
-		dhcpv4.WithGeneric(dhcpv4.OptionServerIdentifier, s.ListenAddr.UDPAddr().IP),
+		dhcpv4.WithGeneric(dhcpv4.OptionServerIdentifier, s.IPAddr.IPAddr().IP),
 		dhcpv4.WithServerIP(s.IPAddr.IPAddr().IP),
 	}
 	mods = append(mods, s.setDHCPOpts(ctx, m, d)...)
@@ -48,6 +49,7 @@ func (s *Server) handleDiscover(ctx context.Context, m *dhcpv4.DHCPv4) *dhcpv4.D
 		return nil
 	}
 	s.Log.Info("sending offer packet")
+	fmt.Println(reply.Summary())
 	return reply
 }
 
