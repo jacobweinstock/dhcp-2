@@ -17,6 +17,7 @@ import (
 	"github.com/insomniacslk/dhcp/iana"
 	"github.com/insomniacslk/dhcp/rfc1035label"
 	"github.com/jacobweinstock/dhcp/data"
+	"golang.org/x/net/nettest"
 	"inet.af/netaddr"
 )
 
@@ -348,5 +349,130 @@ func TestHandleRelease(t *testing.T) {
 	s.handleRelease(context.Background(), &dhcpv4.DHCPv4{})
 	if diff := cmp.Diff(out.String(), expectedLog+"\n"); diff != "" {
 		t.Fatal(diff)
+	}
+}
+
+func TestHandleFunc(t *testing.T) {
+	type fields struct {
+		ctx               context.Context
+		Log               logr.Logger
+		ListenAddr        netaddr.IPPort
+		IPAddr            netaddr.IP
+		IPXEBinServerTFTP netaddr.IPPort
+		IPXEBinServerHTTP *url.URL
+		IPXEScriptURL     *url.URL
+		NetbootEnabled    bool
+		UserClass         UserClass
+		Backend           BackendReader
+	}
+	type args struct {
+		peer net.Addr
+		m    *dhcpv4.DHCPv4
+	}
+	tests := map[string]struct {
+		fields fields
+		args   args
+		out    *bytes.Buffer
+		want   string
+	}{
+		"fail unknown DHCP message type": {
+			fields: fields{
+				ctx:        context.Background(),
+				ListenAddr: netaddr.IPPortFrom(netaddr.IPv4(127, 0, 0, 1), 67),
+				IPAddr:     netaddr.IPv4(127, 0, 0, 1),
+			},
+			args: args{
+				peer: &net.UDPAddr{IP: net.IP{127, 0, 0, 1}, Port: 6767},
+				m: &dhcpv4.DHCPv4{
+					OpCode:       dhcpv4.OpcodeBootRequest,
+					ClientHWAddr: []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
+					Options: dhcpv4.OptionsFromList(
+						dhcpv4.OptMessageType(dhcpv4.MessageTypeInform),
+					),
+				},
+			},
+			out:  &bytes.Buffer{},
+			want: `handler.go:20: "level"=0 "msg"="received unknown message type" "type"="INFORM"` + "\n",
+		},
+		"success discover message type": {
+			fields: fields{
+				ctx:     context.Background(),
+				Backend: &mockBackend{},
+			},
+			args: args{
+				peer: &net.UDPAddr{IP: net.IP{127, 0, 0, 1}, Port: 6767},
+				m: &dhcpv4.DHCPv4{
+					OpCode:       dhcpv4.OpcodeBootRequest,
+					ClientHWAddr: []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
+					Options: dhcpv4.OptionsFromList(
+						dhcpv4.OptMessageType(dhcpv4.MessageTypeDiscover),
+					),
+				},
+			},
+			want: `handler.go:30: "level"=0 "msg"="received discover packet"` + "\n" + `option.go:82: "level"=0 "msg"="DEBUGGING" "option 55"={}` + "\n" + `handler.go:49: "level"=0 "msg"="sending offer packet"` + "\n",
+			out:  &bytes.Buffer{},
+		},
+		"success request message type": {
+			fields: fields{
+				ctx:     context.Background(),
+				Backend: &mockBackend{},
+			},
+			args: args{
+				peer: &net.UDPAddr{IP: net.IP{127, 0, 0, 1}, Port: 6767},
+				m: &dhcpv4.DHCPv4{
+					OpCode:       dhcpv4.OpcodeBootRequest,
+					ClientHWAddr: []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
+					Options: dhcpv4.OptionsFromList(
+						dhcpv4.OptMessageType(dhcpv4.MessageTypeRequest),
+					),
+				},
+			},
+			want: `handler.go:54: "level"=0 "msg"="received request packet"` + "\n" + `option.go:82: "level"=0 "msg"="DEBUGGING" "option 55"={}` + "\n" + `handler.go:73: "level"=0 "msg"="sending ack packet"` + "\n",
+			out:  &bytes.Buffer{},
+		},
+		"success release message type": {
+			fields: fields{
+				ctx:     context.Background(),
+				Backend: &mockBackend{},
+			},
+			args: args{
+				peer: &net.UDPAddr{IP: net.IP{127, 0, 0, 1}, Port: 6767},
+				m: &dhcpv4.DHCPv4{
+					OpCode:       dhcpv4.OpcodeBootRequest,
+					ClientHWAddr: []byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06},
+					Options: dhcpv4.OptionsFromList(
+						dhcpv4.OptMessageType(dhcpv4.MessageTypeRelease),
+					),
+				},
+			},
+			want: `handler.go:78: "level"=0 "msg"="received release, no response required"` + "\n",
+			out:  &bytes.Buffer{},
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			l := stdr.New(log.New(tt.out, "", log.Lshortfile))
+			s := &Server{
+				ctx:               tt.fields.ctx,
+				Log:               l,
+				ListenAddr:        tt.fields.ListenAddr,
+				IPAddr:            tt.fields.IPAddr,
+				IPXEBinServerTFTP: tt.fields.IPXEBinServerTFTP,
+				IPXEBinServerHTTP: tt.fields.IPXEBinServerHTTP,
+				IPXEScriptURL:     tt.fields.IPXEScriptURL,
+				NetbootEnabled:    tt.fields.NetbootEnabled,
+				UserClass:         tt.fields.UserClass,
+				Backend:           tt.fields.Backend,
+			}
+			conn, err := nettest.NewLocalPacketListener("udp")
+			if err != nil {
+				t.Fatal(err)
+			}
+			s.handleFunc(conn, tt.args.peer, tt.args.m)
+			if diff := cmp.Diff(tt.out.String(), tt.want); diff != "" {
+				t.Log(tt.out.String())
+				t.Fatal(diff)
+			}
+		})
 	}
 }
