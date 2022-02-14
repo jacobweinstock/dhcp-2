@@ -64,7 +64,7 @@ func defaultLogger(level string) logr.Logger {
 	return zerologr.New(&zl)
 }
 
-func BackendCacher(l logr.Logger, useTLS string, certURL string, grpcAuthority string, f string) (dhcp.BackendReader, error) {
+func BackendCacher(l logr.Logger, useTLS string, certURL string, grpcAuthority string, f string) (dhcp.BackendReader, error) { // nolint: deadcode // this is just an example file
 	os.Setenv("CACHER_USE_TLS", useTLS)
 	os.Setenv("CACHER_CERT_URL", certURL)
 	os.Setenv("CACHER_GRPC_AUTHORITY", grpcAuthority)
@@ -80,13 +80,13 @@ func BackendCacher(l logr.Logger, useTLS string, certURL string, grpcAuthority s
 	// defer cli.Conn.Close()
 }
 
-func BackendTink(l logr.Logger) (dhcp.BackendReader, error) {
+func BackendTink(l logr.Logger) (dhcp.BackendReader, error) { // nolint: unparam // this is just an example file
 	return &tink.Conn{
 		Log: l,
 	}, nil
 }
 
-func BackendFile(l logr.Logger, f string) (dhcp.BackendReader, error) {
+func BackendFile(l logr.Logger, f string) (dhcp.BackendReader, error) { // nolint: deadcode // this is just an example file
 	fb, err := file.NewFile(f, l)
 	if err != nil {
 		return nil, err
