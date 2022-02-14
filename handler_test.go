@@ -106,7 +106,7 @@ func TestHandleDiscover(t *testing.T) {
 					dhcpv4.OptNTPServers([]net.IP{
 						{132, 163, 96, 2},
 					}...),
-					dhcpv4.OptIPAddressLeaseTime(time.Duration(time.Minute)),
+					dhcpv4.OptIPAddressLeaseTime(time.Minute),
 					dhcpv4.OptDomainSearch(&rfc1035label.Labels{
 						Labels: []string{"mydomain.com"},
 					}),
@@ -155,7 +155,7 @@ func TestHandleDiscover(t *testing.T) {
 					dhcpv4.OptNTPServers([]net.IP{
 						{132, 163, 96, 2},
 					}...),
-					dhcpv4.OptIPAddressLeaseTime(time.Duration(time.Minute)),
+					dhcpv4.OptIPAddressLeaseTime(time.Minute),
 					dhcpv4.OptDomainSearch(&rfc1035label.Labels{
 						Labels: []string{"mydomain.com"},
 					}),
@@ -250,7 +250,7 @@ func TestHandleRequest(t *testing.T) {
 					dhcpv4.OptNTPServers([]net.IP{
 						{132, 163, 96, 2},
 					}...),
-					dhcpv4.OptIPAddressLeaseTime(time.Duration(time.Minute)),
+					dhcpv4.OptIPAddressLeaseTime(time.Minute),
 					dhcpv4.OptDomainSearch(&rfc1035label.Labels{
 						Labels: []string{"mydomain.com"},
 					}),
@@ -299,7 +299,7 @@ func TestHandleRequest(t *testing.T) {
 					dhcpv4.OptNTPServers([]net.IP{
 						{132, 163, 96, 2},
 					}...),
-					dhcpv4.OptIPAddressLeaseTime(time.Duration(time.Minute)),
+					dhcpv4.OptIPAddressLeaseTime(time.Minute),
 					dhcpv4.OptDomainSearch(&rfc1035label.Labels{
 						Labels: []string{"mydomain.com"},
 					}),
