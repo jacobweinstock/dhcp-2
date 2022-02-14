@@ -90,7 +90,7 @@ func (s *Server) setDHCPOpts(_ context.Context, clientPkt *dhcpv4.DHCPv4, d *dat
 		dhcpv4.WithGeneric(dhcpv4.OptionDomainName, []byte(d.DomainName)),
 		dhcpv4.WithGeneric(dhcpv4.OptionHostName, []byte(d.Hostname)),
 		dhcpv4.WithNetmask(d.SubnetMask),
-		// dhcpv4.WithRouter(d.DefaultGateway.IPAddr().IP),
+		dhcpv4.WithRouter(d.DefaultGateway.IPAddr().IP), // this seems to be the gateway ip not WithGatewayIP()
 		dhcpv4.WithGatewayIP(d.DefaultGateway.IPAddr().IP),
 		dhcpv4.WithLeaseTime(d.LeaseTime),
 		dhcpv4.WithYourIP(d.IPAddress.IPAddr().IP),

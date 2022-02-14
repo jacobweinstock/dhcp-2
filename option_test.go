@@ -81,6 +81,7 @@ func TestSetDHCPOpts(t *testing.T) {
 					dhcpv4.OptIPAddressLeaseTime(time.Duration(84600)*time.Second),
 					dhcpv4.OptDomainName("mynet.local"),
 					dhcpv4.OptHostName("test-server"),
+					dhcpv4.OptRouter(net.IP{192, 168, 4, 1}),
 					dhcpv4.OptDNS([]net.IP{
 						{8, 8, 8, 8},
 						{8, 8, 4, 4},

@@ -98,6 +98,7 @@ func TestHandleDiscover(t *testing.T) {
 					dhcpv4.OptSubnetMask(net.IPMask{255, 255, 255, 0}),
 					dhcpv4.OptDomainName("mydomain.com"),
 					dhcpv4.OptHostName("test-host"),
+					dhcpv4.OptRouter(net.IP{192, 168, 1, 1}),
 					dhcpv4.OptDNS([]net.IP{
 						{1, 1, 1, 1},
 					}...),
@@ -147,6 +148,7 @@ func TestHandleDiscover(t *testing.T) {
 					dhcpv4.OptSubnetMask(net.IPMask{255, 255, 255, 0}),
 					dhcpv4.OptDomainName("mydomain.com"),
 					dhcpv4.OptHostName("test-host"),
+					dhcpv4.OptRouter(net.IP{192, 168, 1, 1}),
 					dhcpv4.OptDNS([]net.IP{
 						{1, 1, 1, 1},
 					}...),
@@ -242,6 +244,7 @@ func TestHandleRequest(t *testing.T) {
 					dhcpv4.OptSubnetMask(net.IPMask{255, 255, 255, 0}),
 					dhcpv4.OptDomainName("mydomain.com"),
 					dhcpv4.OptHostName("test-host"),
+					dhcpv4.OptRouter(net.IP{192, 168, 1, 1}),
 					dhcpv4.OptDNS([]net.IP{
 						{1, 1, 1, 1},
 					}...),
@@ -291,6 +294,7 @@ func TestHandleRequest(t *testing.T) {
 					dhcpv4.OptSubnetMask(net.IPMask{255, 255, 255, 0}),
 					dhcpv4.OptDomainName("mydomain.com"),
 					dhcpv4.OptHostName("test-host"),
+					dhcpv4.OptRouter(net.IP{192, 168, 1, 1}),
 					dhcpv4.OptDNS([]net.IP{
 						{1, 1, 1, 1},
 					}...),
