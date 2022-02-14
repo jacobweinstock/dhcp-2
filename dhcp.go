@@ -169,7 +169,7 @@ func (s *Server) Transformer(typ reflect.Type) func(dst, src reflect.Value) erro
 	return nil
 }
 
-// defaultIP will
+// defaultIP will return either the default IP associated with default route or 0.0.0.0.
 func defaultIP() netaddr.IP {
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {

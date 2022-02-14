@@ -65,7 +65,8 @@ func TestSetDHCPOpts(t *testing.T) {
 					DomainSearch: []string{
 						"mynet.local",
 					},
-				}},
+				},
+			},
 			want: &dhcpv4.DHCPv4{
 				OpCode:        dhcpv4.OpcodeBootRequest,
 				HWType:        iana.HWTypeEthernet,
@@ -180,9 +181,9 @@ func TestBootfileAndNextServer(t *testing.T) {
 		"success bootfile only": {
 			fields: fields{Log: logr.Discard()},
 			args: args{
-				//mac:     net.HardwareAddr{0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
+				// mac:     net.HardwareAddr{0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
 				uClass: Tinkerbell,
-				//tftp:    netaddr.IPPortFrom(netaddr.IPv4(192, 168, 4, 1), 67),
+				// tftp:    netaddr.IPPortFrom(netaddr.IPv4(192, 168, 4, 1), 67),
 				iscript: &url.URL{Scheme: "http", Host: "localhost:8080", Path: "/auto.ipxe"},
 			},
 			wantBootFile: "http://localhost:8080/auto.ipxe",
