@@ -344,7 +344,7 @@ func TestHandleRequest(t *testing.T) {
 func TestHandleRelease(t *testing.T) {
 	out := &bytes.Buffer{}
 	s := &Server{Log: stdr.New(log.New(out, "", log.Lshortfile))}
-	expectedLog := `handler.go:81: "level"=0 "msg"="received release, no response required"`
+	expectedLog := `handler.go:78: "level"=0 "msg"="received release, no response required"`
 	s.handleRelease(context.Background(), &dhcpv4.DHCPv4{})
 	if diff := cmp.Diff(out.String(), expectedLog+"\n"); diff != "" {
 		t.Fatal(diff)
