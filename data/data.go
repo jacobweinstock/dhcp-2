@@ -21,6 +21,6 @@ type Dhcp struct {
 }
 
 type Netboot struct {
-	AllowPxe      bool   // If true, the client will be provided netboot options in the DHCP offer/ack.
+	AllowNetboot  bool   // If true, the client will be provided netboot options in the DHCP offer/ack.
 	IpxeScriptURL string // Overrides default value of that is passed into DHCP on startup.
 }

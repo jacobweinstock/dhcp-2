@@ -236,7 +236,7 @@ func (t Intf) translate() (*data.Dhcp, *data.Netboot, error) {
 	// domain search
 	d.DomainSearch = t.Dhcp.DomainSearch
 
-	n.AllowPxe = t.Netboot.AllowPxe
+	n.AllowNetboot = t.Netboot.AllowPxe
 	n.IpxeScriptURL = t.Netboot.IpxeScriptURL
 
 	return d, n, nil

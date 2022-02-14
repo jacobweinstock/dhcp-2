@@ -132,7 +132,7 @@ func translate(r dhcp) (*data.Dhcp, *data.Netboot, error) {
 	// domain search
 	d.DomainSearch = r.DomainSearch
 
-	n.AllowPxe = r.Netboot.AllowPxe
+	n.AllowNetboot = r.Netboot.AllowPxe
 	n.IpxeScriptURL = r.Netboot.IpxeScriptURL
 
 	return d, n, nil

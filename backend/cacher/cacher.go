@@ -89,7 +89,7 @@ func (c *Conn) translate() (*data.Dhcp, *data.Netboot, error) {
 	// domain search
 
 	// netboot options
-	n.AllowPxe = c.data.AllowPXE
+	n.AllowNetboot = c.data.AllowPXE
 	n.IpxeScriptURL = c.data.instance().IPXEScriptURL
 
 	return d, n, nil

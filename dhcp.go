@@ -1,3 +1,4 @@
+// Package dhcp provides a server for running DHCP
 package dhcp
 
 import (
@@ -9,17 +10,17 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/imdario/mergo"
 	"github.com/insomniacslk/dhcp/dhcpv4/server4"
-	"github.com/jacobweinstock/dhcp/backend/tink"
 	"github.com/jacobweinstock/dhcp/data"
 	"golang.org/x/sync/errgroup"
 	"inet.af/netaddr"
 )
 
 type BackendReader interface {
-	// Read from a backend and return DHCP headers and options based on the mac address.
+	// Read data from a backend and return DHCP headers and options based on the mac address.
 	Read(context.Context, net.HardwareAddr) (*data.Dhcp, *data.Netboot, error)
 }
 
+// Server holds the configuration for the DHCP server.
 type Server struct {
 	ctx context.Context
 	Log logr.Logger
@@ -41,21 +42,24 @@ type Server struct {
 	IPXEScriptURL *url.URL
 
 	// NetbootEnabled is whether to enable sending netboot DHCP options.
+	// The default is true.
 	NetbootEnabled bool
 
-	// UserClass is used to specify a custom user class DHCP option 77 to expect from the iPXE binary.
-	// By default "Tinkerbell" is used.
+	// UserClass allows a custom DHCP option 77 to be used to break out of an iPXE loop.
+	// The default used in ipxedust is "Tinkerbell".
 	UserClass UserClass
 
 	Backend BackendReader
 }
 
-// New returns a proxy DHCP server for the Handler.
+// ListenAndServe runs the DHCP server.
+// Options are configured via the Server struct.
 func (s *Server) ListenAndServe(ctx context.Context) error {
 	defaults := &Server{
-		Log:        logr.Discard(),
-		ListenAddr: netaddr.IPPortFrom(netaddr.IPv4(0, 0, 0, 0), 67),
-		IPAddr:     defaultIP(),
+		Log:            logr.Discard(),
+		ListenAddr:     netaddr.IPPortFrom(netaddr.IPv4(0, 0, 0, 0), 67),
+		IPAddr:         defaultIP(),
+		NetbootEnabled: true,
 	}
 
 	err := mergo.Merge(s, defaults, mergo.WithTransformers(s))
@@ -84,9 +88,18 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 	return srv.Close()
 }
 
+// Serve run the DHCP server using the given PacketConn.
 func (s *Server) Serve(ctx context.Context, conn net.PacketConn) error {
-	s.Backend = &tink.Conn{
-		Log: s.Log,
+	defaults := &Server{
+		Log:            logr.Discard(),
+		ListenAddr:     netaddr.IPPortFrom(netaddr.IPv4(0, 0, 0, 0), 67),
+		IPAddr:         defaultIP(),
+		NetbootEnabled: true,
+	}
+
+	err := mergo.Merge(s, defaults, mergo.WithTransformers(s))
+	if err != nil {
+		return err
 	}
 
 	// server4.NewServer() will isolate listening to the specific interface.
@@ -103,30 +116,6 @@ func (s *Server) Serve(ctx context.Context, conn net.PacketConn) error {
 	<-ctx.Done()
 
 	return srv.Close()
-}
-
-func defaultIP() netaddr.IP {
-	addrs, err := net.InterfaceAddrs()
-	if err != nil {
-		return netaddr.IPv4(0, 0, 0, 0)
-	}
-	for _, addr := range addrs {
-		ip, ok := addr.(*net.IPNet)
-		if !ok {
-			continue
-		}
-		v4 := ip.IP.To4()
-		if v4 == nil || !v4.IsGlobalUnicast() {
-			continue
-		}
-
-		i, err := netaddr.ParseIP(v4.String())
-		if err != nil {
-			return netaddr.IPv4(0, 0, 0, 0)
-		}
-		return i
-	}
-	return netaddr.IPv4(0, 0, 0, 0)
 }
 
 // getInterfaceByIP returns the interface with the given IP address or an empty string.
@@ -178,4 +167,29 @@ func (s *Server) Transformer(typ reflect.Type) func(dst, src reflect.Value) erro
 		}
 	}
 	return nil
+}
+
+// defaultIP will
+func defaultIP() netaddr.IP {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return netaddr.IPv4(0, 0, 0, 0)
+	}
+	for _, addr := range addrs {
+		ip, ok := addr.(*net.IPNet)
+		if !ok {
+			continue
+		}
+		v4 := ip.IP.To4()
+		if v4 == nil || !v4.IsGlobalUnicast() {
+			continue
+		}
+
+		i, err := netaddr.ParseIP(v4.String())
+		if err != nil {
+			return netaddr.IPv4(0, 0, 0, 0)
+		}
+		return i
+	}
+	return netaddr.IPv4(0, 0, 0, 0)
 }
