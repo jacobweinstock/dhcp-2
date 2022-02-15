@@ -11,6 +11,7 @@ import (
 	"github.com/insomniacslk/dhcp/dhcpv4"
 	"github.com/insomniacslk/dhcp/iana"
 	"github.com/jacobweinstock/dhcp/data"
+	"go.opentelemetry.io/otel/trace"
 	"inet.af/netaddr"
 )
 
@@ -112,7 +113,7 @@ func (s *Server) setDHCPOpts(_ context.Context, clientPkt *dhcpv4.DHCPv4, d *dat
 // - ipport for http ipxe binary
 // - url for ipxe script
 // - user class (defaults to "Tinkerbell").
-func (s *Server) setNetworkBootOpts(_ context.Context, m *dhcpv4.DHCPv4, n *data.Netboot) func(d *dhcpv4.DHCPv4) {
+func (s *Server) setNetworkBootOpts(ctx context.Context, m *dhcpv4.DHCPv4, n *data.Netboot) func(d *dhcpv4.DHCPv4) {
 	// m is the received DHCPv4 packet.
 	// d is the reply packet we are building.
 	withNetboot := func(d *dhcpv4.DHCPv4) {
@@ -142,7 +143,8 @@ func (s *Server) setNetworkBootOpts(_ context.Context, m *dhcpv4.DHCPv4, n *data
 			d.BootFileName, d.ServerIPAddr = s.bootfileAndNextServer(mac, uClass, opt60, bin, s.IPXEBinServerTFTP, s.IPXEBinServerHTTP, s.IPXEScriptURL)
 			pxe := dhcpv4.Options{
 				// PXE Boot Server Discovery Control - bypass, just boot from filename.
-				6: []byte{8}, // or []byte{8}
+				6:  []byte{8}, // or []byte{8}
+				69: binaryTpFromContext(ctx),
 			}
 			d.UpdateOption(dhcpv4.OptGeneric(dhcpv4.OptionVendorSpecificInformation, pxe.ToBytes()))
 		}
@@ -201,4 +203,29 @@ func arch(d *dhcpv4.DHCPv4) iana.Arch {
 	}
 
 	return a
+}
+
+// binaryTpFromContext extracts the binary trace id, span id, and trace flags
+// from the running span in ctx and returns a 26 byte []byte with the traceparent
+// encoded and ready to pass in opt43
+// see test/test-boots.sh for how to decode tp with busybox udhcpc & cut(1).
+func binaryTpFromContext(ctx context.Context) []byte {
+	sc := trace.SpanContextFromContext(ctx)
+	tpBytes := make([]byte, 0, 26)
+
+	// the otel spec says 16 bytes for trace id and 8 for spans are good enough
+	// for everyone copy them into a []byte that we can deliver over option43
+	tid := [16]byte(sc.TraceID()) // type TraceID [16]byte
+	sid := [8]byte(sc.SpanID())   // type SpanID [8]byte
+
+	tpBytes = append(tpBytes, 0x00)      // traceparent version
+	tpBytes = append(tpBytes, tid[:]...) // trace id
+	tpBytes = append(tpBytes, sid[:]...) // span id
+	if sc.IsSampled() {
+		tpBytes = append(tpBytes, 0x01) // trace flags
+	} else {
+		tpBytes = append(tpBytes, 0x00)
+	}
+
+	return tpBytes
 }

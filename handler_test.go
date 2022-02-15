@@ -163,7 +163,10 @@ func TestHandleDiscover(t *testing.T) {
 						Labels: []string{"mydomain.com"},
 					}),
 					dhcpv4.OptClassIdentifier("HTTPClient"),
-					dhcpv4.OptGeneric(dhcpv4.OptionVendorSpecificInformation, dhcpv4.Options{6: []byte{8}}.ToBytes()),
+					dhcpv4.OptGeneric(dhcpv4.OptionVendorSpecificInformation, dhcpv4.Options{
+						6:  []byte{8},
+						69: binaryTpFromContext(context.Background()),
+					}.ToBytes()),
 				),
 			},
 		},
@@ -309,7 +312,10 @@ func TestHandleRequest(t *testing.T) {
 						Labels: []string{"mydomain.com"},
 					}),
 					dhcpv4.OptClassIdentifier("HTTPClient"),
-					dhcpv4.OptGeneric(dhcpv4.OptionVendorSpecificInformation, dhcpv4.Options{6: []byte{8}}.ToBytes()),
+					dhcpv4.OptGeneric(dhcpv4.OptionVendorSpecificInformation, dhcpv4.Options{
+						6:  []byte{8},
+						69: binaryTpFromContext(context.Background()),
+					}.ToBytes()),
 				),
 			},
 		},
@@ -413,7 +419,7 @@ func TestHandleFunc(t *testing.T) {
 					),
 				},
 			},
-			want: `handler.go:30: "level"=0 "msg"="received discover packet"` + "\n" + `option.go:82: "level"=0 "msg"="DEBUGGING" "option 55"={}` + "\n" + `handler.go:49: "level"=0 "msg"="sending offer packet"` + "\n",
+			want: `handler.go:30: "level"=0 "msg"="received discover packet"` + "\n" + `option.go:83: "level"=0 "msg"="DEBUGGING" "option 55"={}` + "\n" + `handler.go:49: "level"=0 "msg"="sending offer packet"` + "\n",
 			out:  &bytes.Buffer{},
 		},
 		"success request message type": {
@@ -431,7 +437,7 @@ func TestHandleFunc(t *testing.T) {
 					),
 				},
 			},
-			want: `handler.go:54: "level"=0 "msg"="received request packet"` + "\n" + `option.go:82: "level"=0 "msg"="DEBUGGING" "option 55"={}` + "\n" + `handler.go:73: "level"=0 "msg"="sending ack packet"` + "\n",
+			want: `handler.go:54: "level"=0 "msg"="received request packet"` + "\n" + `option.go:83: "level"=0 "msg"="DEBUGGING" "option 55"={}` + "\n" + `handler.go:73: "level"=0 "msg"="sending ack packet"` + "\n",
 			out:  &bytes.Buffer{},
 		},
 		"success release message type": {

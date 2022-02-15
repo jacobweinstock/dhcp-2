@@ -297,7 +297,10 @@ func TestSetNetworkBootOpts(t *testing.T) {
 				n: &data.Netboot{AllowNetboot: true},
 			},
 			want: &dhcpv4.DHCPv4{BootFileName: "http://localhost:8181/01:02:03:04:05:06/auto.ipxe", Options: dhcpv4.OptionsFromList(
-				dhcpv4.OptGeneric(dhcpv4.OptionVendorSpecificInformation, dhcpv4.Options{6: []byte{8}}.ToBytes()),
+				dhcpv4.OptGeneric(dhcpv4.OptionVendorSpecificInformation, dhcpv4.Options{
+					6:  []byte{8},
+					69: binaryTpFromContext(context.Background()),
+				}.ToBytes()),
 				dhcpv4.OptClassIdentifier("HTTPClient"),
 			)},
 		},
