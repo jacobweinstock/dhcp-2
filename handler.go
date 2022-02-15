@@ -59,7 +59,7 @@ func (s *Server) handleRequest(ctx context.Context, m *dhcpv4.DHCPv4) *dhcpv4.DH
 	}
 	mods := []dhcpv4.Modifier{
 		dhcpv4.WithMessageType(dhcpv4.MessageTypeAck),
-		dhcpv4.WithGeneric(dhcpv4.OptionServerIdentifier, s.ListenAddr.UDPAddr().IP),
+		dhcpv4.WithGeneric(dhcpv4.OptionServerIdentifier, s.Listener.UDPAddr().IP),
 		dhcpv4.WithServerIP(s.IPAddr.IPAddr().IP),
 	}
 	mods = append(mods, s.setDHCPOpts(ctx, m, d)...)

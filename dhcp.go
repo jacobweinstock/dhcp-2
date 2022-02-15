@@ -25,11 +25,14 @@ type Server struct {
 	ctx context.Context
 	Log logr.Logger
 
-	// ListenAddr is the address to listen on for DHCP requests.
-	ListenAddr netaddr.IPPort
+	// Listener collects an IP and port.
+	// The port is combined with 0.0.0.0 to listen for broadcast traffic.
+	// The IP is used to find the network interface to listen on for DHCP requests.
+	Listener netaddr.IPPort
 
 	// IPAddr is the IP address to use in DHCP requests.
-	// Option 54 and maybe sname DHCP header.
+	// Option 54 and the sname DHCP header.
+	// This could be a load balancer IP address or an ingress IP address or a local IP address.
 	IPAddr netaddr.IP
 
 	// iPXE binary server IP:Port serving via TFTP.
@@ -56,8 +59,9 @@ type Server struct {
 // Options are configured via the Server struct.
 func (s *Server) ListenAndServe(ctx context.Context) error {
 	defaults := &Server{
+		ctx:            ctx,
 		Log:            logr.Discard(),
-		ListenAddr:     netaddr.IPPortFrom(netaddr.IPv4(0, 0, 0, 0), 67),
+		Listener:       netaddr.IPPortFrom(netaddr.IPv4(0, 0, 0, 0), 67),
 		IPAddr:         defaultIP(),
 		NetbootEnabled: true,
 	}
@@ -69,11 +73,11 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 	// for broadcast traffic we need to listen on all IPs
 	conn := &net.UDPAddr{
 		IP:   net.ParseIP("0.0.0.0"),
-		Port: s.ListenAddr.UDPAddr().Port,
+		Port: s.Listener.UDPAddr().Port,
 	}
 
 	// server4.NewServer() will isolate listening to the specific interface.
-	srv, err := server4.NewServer(getInterfaceByIP(s.ListenAddr.IP().String()), conn, s.handleFunc)
+	srv, err := server4.NewServer(getInterfaceByIP(s.Listener.IP().String()), conn, s.handleFunc)
 	if err != nil {
 		return err
 	}
@@ -84,15 +88,16 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 	})
 
 	<-ctx.Done()
+	srv.Close()
 
-	return srv.Close()
+	return g.Wait()
 }
 
 // Serve run the DHCP server using the given PacketConn.
 func (s *Server) Serve(ctx context.Context, conn net.PacketConn) error {
 	defaults := &Server{
 		Log:            logr.Discard(),
-		ListenAddr:     netaddr.IPPortFrom(netaddr.IPv4(0, 0, 0, 0), 67),
+		Listener:       netaddr.IPPortFrom(netaddr.IPv4(0, 0, 0, 0), 67),
 		IPAddr:         defaultIP(),
 		NetbootEnabled: true,
 	}

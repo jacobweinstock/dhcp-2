@@ -183,7 +183,7 @@ func TestHandleDiscover(t *testing.T) {
 			s := &Server{
 				ctx:               tt.fields.ctx,
 				Log:               tt.fields.Log,
-				ListenAddr:        tt.fields.ListenAddr,
+				Listener:        tt.fields.ListenAddr,
 				IPAddr:            tt.fields.IPAddr,
 				IPXEBinServerTFTP: tt.fields.IPXEBinServerTFTP,
 				IPXEBinServerHTTP: tt.fields.IPXEBinServerHTTP,
@@ -329,7 +329,7 @@ func TestHandleRequest(t *testing.T) {
 			s := &Server{
 				ctx:               tt.fields.ctx,
 				Log:               tt.fields.Log,
-				ListenAddr:        tt.fields.ListenAddr,
+				Listener:        tt.fields.ListenAddr,
 				IPAddr:            tt.fields.IPAddr,
 				IPXEBinServerTFTP: tt.fields.IPXEBinServerTFTP,
 				IPXEBinServerHTTP: tt.fields.IPXEBinServerHTTP,
@@ -459,7 +459,7 @@ func TestHandleFunc(t *testing.T) {
 			s := &Server{
 				ctx:               tt.fields.ctx,
 				Log:               l,
-				ListenAddr:        tt.fields.ListenAddr,
+				Listener:        tt.fields.ListenAddr,
 				IPAddr:            tt.fields.IPAddr,
 				IPXEBinServerTFTP: tt.fields.IPXEBinServerTFTP,
 				IPXEBinServerHTTP: tt.fields.IPXEBinServerHTTP,

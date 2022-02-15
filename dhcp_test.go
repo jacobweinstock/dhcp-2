@@ -29,7 +29,7 @@ func TestListenAndServe(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			got := &Server{
-				ListenAddr: netaddr.IPPortFrom(netaddr.IPv4(127, 0, 0, 1), 6767),
+				Listener: netaddr.IPPortFrom(netaddr.IPv4(127, 0, 0, 1), 6767),
 			}
 			ctx, cn := context.WithCancel(context.Background())
 

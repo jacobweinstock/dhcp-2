@@ -24,14 +24,14 @@ func main() {
 	l := defaultLogger("debug")
 	l = l.WithName("github.com/tinkerbell/dhcp")
 
-	// b, err := BackendFile(l, "./example/dhcp.yaml")
-	b, err := BackendTink(l)
+	b, err := BackendFile(l, "./example/dhcp.yaml")
+	// b, err := BackendTink(l)
 	if err != nil {
 		panic(err)
 	}
 	s := dhcp.Server{
 		Log:               l,
-		ListenAddr:        netaddr.IPPortFrom(netaddr.IPv4(192, 168, 2, 225), 67),
+		Listener:        netaddr.IPPortFrom(netaddr.IPv4(192, 168, 2, 225), 67),
 		IPAddr:            netaddr.IPv4(192, 168, 2, 225),
 		IPXEBinServerTFTP: netaddr.IPPortFrom(netaddr.IPv4(192, 168, 1, 34), 69),
 		IPXEBinServerHTTP: &url.URL{Scheme: "http", Host: "192.168.1.34:8080"},
@@ -39,7 +39,7 @@ func main() {
 		NetbootEnabled:    true,
 		Backend:           b,
 	}
-	l.Info("starting server", "addr", s.ListenAddr)
+	l.Info("starting server", "addr", s.Listener)
 	l.Error(s.ListenAndServe(ctx), "done")
 	l.Info("done")
 }

@@ -102,7 +102,7 @@ func TestSetDHCPOpts(t *testing.T) {
 			s := &Server{
 				ctx:               tt.fields.ctx,
 				Log:               tt.fields.Log,
-				ListenAddr:        tt.fields.ListenAddr,
+				Listener:        tt.fields.ListenAddr,
 				IPAddr:            tt.fields.IPAddr,
 				IPXEBinServerTFTP: tt.fields.IPXEBinServerTFTP,
 				IPXEBinServerHTTP: tt.fields.IPXEBinServerHTTP,
@@ -230,7 +230,7 @@ func TestBootfileAndNextServer(t *testing.T) {
 			s := &Server{
 				ctx:               tt.fields.ctx,
 				Log:               tt.fields.Log,
-				ListenAddr:        tt.fields.ListenAddr,
+				Listener:        tt.fields.ListenAddr,
 				IPAddr:            tt.fields.IPAddr,
 				IPXEBinServerTFTP: tt.fields.IPXEBinServerTFTP,
 				IPXEBinServerHTTP: tt.fields.IPXEBinServerHTTP,
@@ -322,7 +322,7 @@ func TestSetNetworkBootOpts(t *testing.T) {
 			s := &Server{
 				ctx:               tt.fields.ctx,
 				Log:               tt.fields.Log,
-				ListenAddr:        tt.fields.ListenAddr,
+				Listener:        tt.fields.ListenAddr,
 				IPAddr:            tt.fields.IPAddr,
 				IPXEBinServerTFTP: tt.fields.IPXEBinServerTFTP,
 				IPXEBinServerHTTP: tt.fields.IPXEBinServerHTTP,
