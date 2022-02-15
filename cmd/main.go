@@ -31,7 +31,7 @@ func main() {
 	}
 	s := dhcp.Server{
 		Log:               l,
-		Listener:        netaddr.IPPortFrom(netaddr.IPv4(192, 168, 2, 225), 67),
+		Listener:          netaddr.IPPortFrom(netaddr.IPv4(192, 168, 2, 225), 67),
 		IPAddr:            netaddr.IPv4(192, 168, 2, 225),
 		IPXEBinServerTFTP: netaddr.IPPortFrom(netaddr.IPv4(192, 168, 1, 34), 69),
 		IPXEBinServerHTTP: &url.URL{Scheme: "http", Host: "192.168.1.34:8080"},
@@ -80,13 +80,13 @@ func BackendCacher(l logr.Logger, useTLS string, certURL string, grpcAuthority s
 	// defer cli.Conn.Close()
 }
 
-func BackendTink(l logr.Logger) (dhcp.BackendReader, error) { // nolint: unparam // this is just an example file
+func BackendTink(l logr.Logger) (dhcp.BackendReader, error) { // nolint: unparam,deadcode // this is just an example file
 	return &tink.Conn{
 		Log: l,
 	}, nil
 }
 
-func BackendFile(l logr.Logger, f string) (dhcp.BackendReader, error) { // nolint: deadcode // this is just an example file
+func BackendFile(l logr.Logger, f string) (dhcp.BackendReader, error) {
 	fb, err := file.NewFile(f, l)
 	if err != nil {
 		return nil, err

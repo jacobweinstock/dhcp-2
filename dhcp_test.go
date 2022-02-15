@@ -2,6 +2,7 @@ package dhcp
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"sync"
 	"testing"
@@ -15,7 +16,12 @@ func TestListenAndServe(t *testing.T) {
 		wantErr error
 	}{
 		"success": {
-			wantErr: nil,
+			wantErr: &net.OpError{
+				Op:   "read",
+				Net:  "udp",
+				Addr: &net.UDPAddr{IP: net.IPv4(0, 0, 0, 0), Port: 6767},
+				Err:  fmt.Errorf("use of closed network connection"),
+			},
 		},
 		/*"fail": {
 			wantErr: &net.OpError{
@@ -46,7 +52,7 @@ func TestListenAndServe(t *testing.T) {
 
 			switch {
 			case tt.wantErr == nil && err != nil:
-				t.Errorf("expected nil error, got: %T (%[1]v)", err)
+				t.Fatalf("expected nil error, got: %T (%[1]v)", err)
 			case tt.wantErr != nil && err == nil:
 				t.Errorf("expected error, got: nil")
 			case tt.wantErr != nil && err != nil:
