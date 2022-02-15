@@ -14,6 +14,7 @@ import (
 func TestListenAndServe(t *testing.T) {
 	tests := map[string]struct {
 		wantErr error
+		port    uint16
 	}{
 		"success": {
 			wantErr: &net.OpError{
@@ -22,20 +23,22 @@ func TestListenAndServe(t *testing.T) {
 				Addr: &net.UDPAddr{IP: net.IPv4(0, 0, 0, 0), Port: 6767},
 				Err:  fmt.Errorf("use of closed network connection"),
 			},
+			port: 6767,
 		},
 		/*"fail": {
 			wantErr: &net.OpError{
 				Op:   "listen",
 				Net:  "udp",
-				Addr: &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 69},
+				Addr: &net.UDPAddr{IP: net.IPv4(0, 0, 0, 0), Port: 69},
 				Err:  fmt.Errorf("bind: permission denied"),
 			},
+			port: 69,
 		},*/
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			got := &Server{
-				Listener: netaddr.IPPortFrom(netaddr.IPv4(127, 0, 0, 1), 6767),
+				Listener: netaddr.IPPortFrom(netaddr.IPv4(127, 0, 0, 1), tt.port),
 			}
 			ctx, cn := context.WithCancel(context.Background())
 
