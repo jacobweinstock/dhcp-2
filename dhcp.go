@@ -119,8 +119,9 @@ func (s *Server) Serve(ctx context.Context, conn net.PacketConn) error {
 	})
 
 	<-ctx.Done()
+	srv.Close()
 
-	return srv.Close()
+	return g.Wait()
 }
 
 // getInterfaceByIP returns the interface with the given IP address or an empty string.
