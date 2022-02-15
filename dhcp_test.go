@@ -73,7 +73,12 @@ func TestServe(t *testing.T) {
 		wantUDPErr bool
 	}{
 		"success": {
-			wantErr: nil,
+			wantErr: &net.OpError{
+				Op:   "read",
+				Net:  "udp",
+				Addr: &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 6767},
+				Err:  fmt.Errorf("use of closed network connection"),
+			},
 		},
 		/*"fail udp listener": {
 			wantErr:    fmt.Errorf("udp conn must not be nil"),
@@ -88,7 +93,7 @@ func TestServe(t *testing.T) {
 			var uconn net.PacketConn
 			var err error
 			if !tt.wantUDPErr {
-				a, err := net.ResolveUDPAddr("udp", "0.0.0.0:0")
+				a, err := net.ResolveUDPAddr("udp", "127.0.0.1:6767")
 				if err != nil {
 					t.Fatal(err)
 				}
