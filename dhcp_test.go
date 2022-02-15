@@ -44,7 +44,7 @@ func TestListenAndServe(t *testing.T) {
 
 			switch {
 			case tt.wantErr == nil && err != nil:
-				t.Errorf("expected nil error, got: %T", err)
+				t.Errorf("expected nil error, got: %T (%[1]v)", err)
 			case tt.wantErr != nil && err == nil:
 				t.Errorf("expected error, got: nil")
 			case tt.wantErr != nil && err != nil:
